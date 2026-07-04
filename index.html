@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PAC-DOG · Una invitación especial</title>
+<style>
+/* ============================================================
+   PAC-DOG — Landing de invitación 8-bit
+   Un solo archivo, sin dependencias externas ni localStorage.
+   Secciones: variables / base / hero / juego / D-pad / invitación
+   ============================================================ */
+
+/* ---------- Variables y base ---------- */
+:root{
+  --bg:        #07071c;   /* fondo general azul-noche */
+  --bg-card:   #0d0d2b;
+  --wall:      #3653ff;   /* azul neón de las paredes */
+  --amarillo:  #ffd93b;
+  --rosa:      #ff5ea8;
+  --celeste:   #4fd8ff;
+  --verde:     #39ff6a;
+  --naranja:   #ff9f1c;
+  --crema:     #f7ecd0;
+  --texto:     #f2f2f8;
+  /* Fuente "pixel" 100% offline: monoespaciada, en negrita y con
+     letter-spacing; los títulos añaden text-shadow escalonado. */
+  --font-pixel: "Courier New", ui-monospace, Menlo, monospace;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+body{
+  background:var(--bg);
+  color:var(--texto);
+  font-family:var(--font-pixel);
+  font-weight:bold;
+  letter-spacing:.04em;
+  line-height:1.55;
+  overflow-x:hidden;
+}
+canvas{ image-rendering:pixelated; image-rendering:crisp-edges; display:block; }
+button{
+  font-family:var(--font-pixel); font-weight:bold; letter-spacing:.06em;
+  cursor:pointer; touch-action:manipulation; /* evita zoom por doble tap */
+}
+section{ padding:24px 12px; }
+
+/* Título estilo arcade: sombra escalonada que simula pixeles */
+.titulo-arcade{
+  color:var(--amarillo);
+  text-transform:uppercase;
+  text-shadow:
+    2px 2px 0 #b8860b,
+    4px 4px 0 #7a3b00,
+    6px 6px 0 rgba(0,0,0,.55);
+}
+
+/* Botón arcade reutilizable */
+.btn-arcade{
+  display:inline-block;
+  background:var(--amarillo); color:#241a00;
+  border:0; padding:14px 28px; font-size:1.05rem;
+  box-shadow:0 6px 0 #a87900, 0 8px 14px rgba(0,0,0,.5);
+  text-transform:uppercase;
+}
+.btn-arcade:active{ transform:translateY(4px); box-shadow:0 2px 0 #a87900; }
+.btn-arcade.rosa{ background:var(--rosa); color:#fff; box-shadow:0 6px 0 #a5175f, 0 8px 14px rgba(0,0,0,.5); }
+.btn-arcade.rosa:active{ box-shadow:0 2px 0 #a5175f; }
+
+/* ---------- Botón fail-safe (siempre visible) ---------- */
+#btnSaltar{
+  position:fixed; top:10px; right:10px; z-index:50;
+  background:rgba(13,13,43,.85); color:var(--celeste);
+  border:2px solid var(--celeste); padding:7px 10px; font-size:.72rem;
+}
+#btnSaltar:hover{ background:var(--celeste); color:#00222e; }
+
+/* ---------- Hero ---------- */
+#hero{
+  min-height:100vh; min-height:100svh;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:22px; text-align:center;
+  background:
+    radial-gradient(ellipse at 50% -10%, #1a1a4d 0%, var(--bg) 60%);
+}
+#hero h1{ font-size:clamp(2.2rem, 9vw, 4.5rem); animation:latido 2.4s infinite; }
+@keyframes latido{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.05);} }
+#hero .sub{ color:var(--rosa); font-size:clamp(.8rem,3.4vw,1.1rem); text-transform:uppercase; }
+.perritas{ display:flex; gap:38px; justify-content:center; align-items:flex-end; }
+.perrita{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+.perrita canvas{ width:96px; height:96px; }
+.perrita span{ font-size:.75rem; color:var(--crema); }
+.hint{ font-size:.68rem; color:#8f8fb8; max-width:340px; }
+
+/* ---------- Juego ---------- */
+#juego{
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  min-height:100vh; min-height:100svh; justify-content:center;
+}
+#hud{
+  display:flex; gap:18px; flex-wrap:wrap; justify-content:center;
+  font-size:.78rem; color:var(--crema); text-transform:uppercase;
+  align-items:center;
+}
+#hud .valor{ color:var(--amarillo); }
+#hud .vidas{ color:var(--rosa); letter-spacing:.15em; }
+#btnMute{ background:none; border:2px solid #55558a; color:#b9b9dd; font-size:.78rem; padding:3px 8px; }
+
+.canvas-wrap{ position:relative; }
+#gameCanvas{ background:#04040f; border:4px solid #1b1b45; }
+
+/* Overlay de mensajes sobre el canvas (READY, PAUSA, transición...) */
+#overlay{
+  position:absolute; inset:0; z-index:5;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; text-align:center; padding:18px;
+  background:rgba(4,4,15,.82);
+}
+#overlay.oculto{ display:none; }
+#overlay h2{ color:var(--amarillo); font-size:clamp(1rem,5vw,1.6rem); text-transform:uppercase; }
+#overlay p{ font-size:clamp(.7rem,3.2vw,.9rem); max-width:340px; color:var(--texto); }
+#overlay .mini{ font-size:.65rem; color:#9a9ac4; }
+
+/* ---------- D-pad (móvil / pantallas táctiles) ---------- */
+#dpad{
+  display:none;
+  grid-template-columns:64px 64px 64px;
+  grid-template-rows:64px 64px 64px;
+  gap:6px; margin-top:4px;
+  user-select:none; -webkit-user-select:none;
+}
+#dpad button{
+  background:#141438; color:var(--celeste);
+  border:2px solid #2c2c6e; font-size:1.5rem;
+  border-radius:10px; touch-action:none;
+}
+#dpad button:active{ background:var(--celeste); color:#00222e; }
+#dpad .vacio{ visibility:hidden; }
+@media (pointer:coarse){ #dpad{ display:grid; } }
+
+/* ---------- Invitación ---------- */
+#invitacion{ display:none; min-height:100vh; min-height:100svh; align-items:center; justify-content:center; position:relative; }
+#invitacion.visible{ display:flex; }
+#confetiCanvas{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.tarjeta{
+  position:relative; z-index:2;
+  background:var(--bg-card);
+  border:4px solid var(--rosa);
+  box-shadow:0 0 0 4px var(--bg-card), 0 0 0 8px var(--celeste), 0 18px 50px rgba(0,0,0,.65);
+  max-width:520px; width:100%;
+  padding:34px 22px; text-align:center;
+  display:flex; flex-direction:column; gap:16px; align-items:center;
+}
+.tarjeta h2{ font-size:clamp(1.3rem,6vw,2rem); }
+.tarjeta .mensaje{ font-size:clamp(.72rem,3.4vw,.92rem); color:var(--texto); }
+.tarjeta .mensaje em{ color:var(--rosa); font-style:normal; }
+.datos{ display:flex; flex-direction:column; gap:8px; font-size:clamp(.8rem,3.8vw,1rem); color:var(--crema); }
+.datos b{ color:var(--amarillo); }
+.separador{ color:var(--rosa); letter-spacing:.4em; font-size:.8rem; }
+.firma{ color:var(--celeste); font-size:.8rem; }
+#dogsFinal{ width:180px; height:64px; }
+
+@media (max-width:420px){
+  section{ padding:16px 8px; }
+  .tarjeta{ padding:26px 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Fail-safe: la invitación SIEMPRE es alcanzable desde aquí -->
+<button id="btnSaltar" aria-label="Saltar el juego y ver la invitación">🎁 Ver invitación</button>
+
+<!-- ================= HERO ================= -->
+<section id="hero">
+  <h1 class="titulo-arcade">PAC&#8209;DOG</h1>
+  <p class="sub">★ Negrita y Orejas necesitan tu ayuda ★</p>
+  <div class="perritas">
+    <div class="perrita"><canvas id="heroNegrita" width="16" height="16"></canvas><span>NEGRITA</span></div>
+    <div class="perrita"><canvas id="heroOrejas" width="16" height="16"></canvas><span>OREJAS</span></div>
+  </div>
+  <button id="btnJugar" class="btn-arcade">▶ Jugar</button>
+  <p class="hint">Come todos los huesitos 🦴 sin que Nico y Diego te atrapen. Al ganar los 2 niveles hay una sorpresa...</p>
+</section>
+
+<!-- ================= JUEGO ================= -->
+<section id="juego">
+  <div id="hud">
+    <span>Puntos <span class="valor" id="hudScore">0</span></span>
+    <span>Huesos <span class="valor" id="hudBones">0</span></span>
+    <span>Nivel <span class="valor" id="hudLevel">1</span></span>
+    <span class="vidas" id="hudLives">♥♥♥</span>
+    <button id="btnMute" aria-label="Activar o silenciar sonido">🔊</button>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay">
+      <h2 id="ovTitulo">PAC-DOG</h2>
+      <p id="ovTexto">Toca aquí o presiona una flecha para empezar</p>
+      <button id="ovBoton" class="btn-arcade" style="display:none">Continuar</button>
+      <p class="mini">Flechas / WASD · en el cel: desliza o usa el D-pad</p>
+    </div>
+  </div>
+  <div id="dpad" aria-label="Control direccional">
+    <button class="vacio" tabindex="-1"></button>
+    <button data-dir="0,-1" aria-label="Arriba">▲</button>
+    <button class="vacio" tabindex="-1"></button>
+    <button data-dir="-1,0" aria-label="Izquierda">◀</button>
+    <button class="vacio" tabindex="-1"></button>
+    <button data-dir="1,0" aria-label="Derecha">▶</button>
+    <button class="vacio" tabindex="-1"></button>
+    <button data-dir="0,1" aria-label="Abajo">▼</button>
+    <button class="vacio" tabindex="-1"></button>
+  </div>
+</section>
+
+<!-- ================= INVITACIÓN ================= -->
+<section id="invitacion">
+  <canvas id="confetiCanvas"></canvas>
+  <div class="tarjeta">
+    <h2 class="titulo-arcade">¡Ganaste! 💘</h2>
+    <canvas id="dogsFinal" width="45" height="16"></canvas>
+    <p class="mensaje">
+      Negrita y Orejas ya comieron todos sus huesitos...<br>
+      ahora nos toca celebrar a nosotros.
+    </p>
+    <p class="mensaje">
+      <em>Nico:</em> feliz aniversario, amor. Gracias por un año más de
+      aventuras, risas y paseos con las perriñas. Te preparé una sorpresa —
+      tú solo tienes que llegar. 🐾
+    </p>
+    <p class="separador"></p>
+    <div class="datos">
+      <span>📅 <b>Domingo 5 de julio</b></span>
+      <span>🕕 <b>6:00 pm</b></span>
+      <span>📍 Lugar: <b>Sorpresa 🎁</b></span>
+    </div>
+    <button id="btnCalendario" class="btn-arcade rosa">📅 Agregar al calendario</button>
+    <p class="firma">Con amor, Diego ♥</p>
+  </div>
+</section>
+
+<script>
+"use strict";
+/* ============================================================
+   SECCIÓN 1 · SPRITES — pixel-art generado por código
+   Cada sprite: matriz de strings (16×16 u 8×8) + paleta propia.
+   Ver .claude/skills/pixel-art/SKILL.md para la convención.
+   ============================================================ */
+
+// Helper único: matriz + paleta -> canvas offscreen (opcional espejado)
+function makeSprite(filas, paleta, flipX){
+  const h = filas.length, w = filas[0].length;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  for(let y=0; y<h; y++){
+    for(let x=0; x<w; x++){
+      const ch = filas[y][x];
+      if(ch === ".") continue;               // transparente
+      g.fillStyle = paleta[ch] || "#f0f";     // fucsia = índice faltante (debug)
+      g.fillRect(flipX ? w-1-x : x, y, 1, 1);
+    }
+  }
+  return c;
+}
+
+/* --- NEGRITA: perrita negra, orejas erguidas, hocico canoso ---
+   Vista lateral mirando a la derecha; 2 frames (boca abierta/cerrada). */
+const PAL_NEGRITA = { k:"#2e2e36", g:"#a9a9b0", w:"#ffffff", e:"#141414" };
+const NEGRITA_A = [ // boca abierta
+  "................",
+  ".........k..k...",
+  "........kk..kk..",
+  "........kkkkkk..",
+  ".kk....kkkkkkkk.",
+  ".kk...kkkwekkkk.",
+  "..kk.kkkkkkkggg.",
+  "..kkkkkkkkggg...",
+  "...kkkkkkkg.....",
+  "...kkkkkkkggg...",
+  "...kkkkkkkkkggg.",
+  "...kkkkkkkkkk...",
+  "...kkkkkkkkk....",
+  "...kk..kk.kk....",
+  "...kk..kk.kk....",
+  "................",
+];
+const NEGRITA_B = [ // boca cerrada
+  "................",
+  ".........k..k...",
+  "........kk..kk..",
+  "........kkkkkk..",
+  ".kk....kkkkkkkk.",
+  ".kk...kkkwekkkk.",
+  "..kk.kkkkkkkggg.",
+  "..kkkkkkkkgggg..",
+  "...kkkkkkkgggg..",
+  "...kkkkkkkggg...",
+  "...kkkkkkkkk....",
+  "...kkkkkkkkkk...",
+  "...kkkkkkkkk....",
+  "...kk..kk.kk....",
+  "...kk..kk.kk....",
+  "................",
+];
+
+/* --- OREJAS: tostada con montura negra, cejitas, una oreja caída --- */
+const PAL_OREJAS = { b:"#c98d4b", s:"#26221f", t:"#eec27c", m:"#6b4423", w:"#ffffff", e:"#141414" };
+const OREJAS_A = [ // boca abierta
+  "........ss......",
+  "........ss......",
+  "........sss.ss..",
+  "........bbbbss..",
+  ".bb....btbbbbss.",
+  ".bb...bbbwebbbs.",
+  "..bb.sbbbbbbmmm.",
+  "..bsssbbbbmmm...",
+  "...ssssssbm.....",
+  "...sssssbbmmm...",
+  "...bbbbbbbbbmmm.",
+  "...bbbbbbbbbb...",
+  "...bbbbbbbbb....",
+  "...bb..bb.bb....",
+  "...bb..bb.bb....",
+  "................",
+];
+const OREJAS_B = [ // boca cerrada
+  "........ss......",
+  "........ss......",
+  "........sss.ss..",
+  "........bbbbss..",
+  ".bb....btbbbbss.",
+  ".bb...bbbwebbbs.",
+  "..bb.sbbbbbbmmm.",
+  "..bsssbbbbmmmm..",
+  "...ssssssbmmmm..",
+  "...sssssbbmmm...",
+  "...bbbbbbbbb....",
+  "...bbbbbbbbbb...",
+  "...bbbbbbbbb....",
+  "...bb..bb.bb....",
+  "...bb..bb.bb....",
+  "................",
+];
+
+/* --- NICO: fantasma blanco, piel morena, lentes redondos,
+       cabello castaño oscuro largo a los lados --- */
+const PAL_NICO = { W:"#f4f4f4", H:"#3a2a1e", F:"#a9714b", L:"#1c1c1c", e:"#2a1508", p:"#c96a6a" };
+const NICO_SPR = [
+  ".....WWWWWW.....",
+  "...WWWWWWWWWW...",
+  "..WHHHHHHHHHW...",
+  ".WHHHHHHHHHHHW..",
+  ".WHHFFFFFFFHHW..",
+  ".WHHFFFFFFFHHW..",
+  ".WHFLLLFLLLFHW..",
+  ".WHFLeLFLeLFHW..",
+  ".WHFLLLFLLLFHW..",
+  ".WHFFFFFFFFFHW..",
+  ".WHFFFpppFFFHW..",
+  ".WHHFFFFFFFHHW..",
+  ".WWWWWWWWWWWWW..",
+  ".WWWWWWWWWWWWW..",
+  ".WW.WWW..WWW.WW.",
+  ".W...W....W...W.",
+];
+
+/* --- DIEGO: fantasma blanco con collar hawaiano neón, pelo negro
+       rizado (borde superior irregular), lentes y braces --- */
+const PAL_DIEGO = {
+  W:"#f4f4f4", C:"#151515", F:"#f0c8a0", L:"#1c1c1c", e:"#2a1508",
+  m:"#5c1f1f", B:"#cfd6e0", G:"#39ff6a", O:"#ff9f1c", P:"#ff5ea8", A:"#4fd8ff",
+};
+const DIEGO_SPR = [
+  "...C.CC.CC.C....",
+  "..CCCCCCCCCCC...",
+  ".CCCCCCCCCCCCC..",
+  ".CCCCCCCCCCCCC..",
+  ".WCCFFFFFFFCCW..",
+  ".WCFFFFFFFFFCW..",
+  ".WFFLLLFLLLFFW..",
+  ".WFFLeLFLeLFFW..",
+  ".WFFFFFFFFFFFW..",
+  ".WFFFmmmmmFFFW..",
+  ".WFFFmBmBmFFFW..",
+  ".WGOPAGOPAGOPW..",
+  ".WWWWWWWWWWWWW..",
+  ".WWWWWWWWWWWWW..",
+  ".WW.WWW..WWW.WW.",
+  ".W...W....W...W.",
+];
+
+/* --- Fantasma asustado (modo power-up) + variante flash --- */
+const FRIGHT_SPR = [
+  ".....UUUUUU.....",
+  "...UUUUUUUUUU...",
+  "..UUUUUUUUUUUU..",
+  "..UUUUUUUUUUUU..",
+  ".UUUWWUUUUWWUUU.",
+  ".UUUWWUUUUWWUUU.",
+  ".UUUUUUUUUUUUUU.",
+  ".UUUUUUUUUUUUUU.",
+  ".UUWWUUWWUUWWUU.",
+  ".UWUUWWUUWWUUWU.",
+  ".UUUUUUUUUUUUUU.",
+  ".UUUUUUUUUUUUUU.",
+  ".UUUUUUUUUUUUUU.",
+  ".UUUUUUUUUUUUUU.",
+  ".UU.UUU..UUU.UU.",
+  ".U...U....U...U.",
+];
+const PAL_FRIGHT = { U:"#2121de", W:"#f7ecd0" };
+const PAL_FLASH  = { U:"#f4f4f4", W:"#d43a3a" };
+
+/* --- Ítems 8×8 --- */
+const PAL_ITEMS = { W:"#f7ecd0", O:"#ff9f1c", R:"#ff4d6d" };
+const BONE_SPR = [ // huesito (reemplaza los puntos)
+  "........",
+  ".WW..WW.",
+  ".WWWWWW.",
+  ".WW..WW.",
+  "........",
+  "........",
+  "........",
+  "........",
+];
+const POWER_SPR = [ // croqueta especial (power-up)
+  "..OOOO..",
+  ".OOOOOO.",
+  "OOOOOOOO",
+  "OOOOOOOO",
+  "OOOOOOOO",
+  "OOOOOOOO",
+  ".OOOOOO.",
+  "..OOOO..",
+];
+const HEART_SPR = [ // corazón para la celebración
+  "........",
+  ".RR..RR.",
+  "RRRRRRRR",
+  "RRRRRRRR",
+  ".RRRRRR.",
+  "..RRRR..",
+  "...RR...",
+  "........",
+];
+
+// Pre-render de todos los sprites (una sola vez, fuera del game loop)
+const SPR = {
+  negrita: { R:[makeSprite(NEGRITA_A,PAL_NEGRITA), makeSprite(NEGRITA_B,PAL_NEGRITA)],
+             L:[makeSprite(NEGRITA_A,PAL_NEGRITA,true), makeSprite(NEGRITA_B,PAL_NEGRITA,true)] },
+  orejas:  { R:[makeSprite(OREJAS_A,PAL_OREJAS), makeSprite(OREJAS_B,PAL_OREJAS)],
+             L:[makeSprite(OREJAS_A,PAL_OREJAS,true), makeSprite(OREJAS_B,PAL_OREJAS,true)] },
+  nico:    makeSprite(NICO_SPR, PAL_NICO),
+  diego:   makeSprite(DIEGO_SPR, PAL_DIEGO),
+  fright:  makeSprite(FRIGHT_SPR, PAL_FRIGHT),
+  flash:   makeSprite(FRIGHT_SPR, PAL_FLASH),
+  bone:    makeSprite(BONE_SPR, PAL_ITEMS),
+  power:   makeSprite(POWER_SPR, PAL_ITEMS),
+  heart:   makeSprite(HEART_SPR, PAL_ITEMS),
+};
+
+/* ============================================================
+   SECCIÓN 2 · LABERINTOS
+   Leyenda: '#' pared · '.' hueso · 'o' power-up · ' ' camino libre
+            'G' casa de fantasmas · '-' puerta de la casa · 'P' spawn
+   19 columnas × 21 filas. La fila del túnel envuelve (wrap).
+   ============================================================ */
+const MAZE_ROWS = [
+[ // ---- Nivel 1: Negrita ----
+  "###################",
+  "#........#........#",
+  "#o##.###.#.###.##o#",
+  "#.................#",
+  "#.##.#.#####.#.##.#",
+  "#....#...#...#....#",
+  "####.###.#.###.####",
+  "####.#.......#.####",
+  "####.#.##-##.#.####",
+  "     #.#GGG#.#     ",
+  "####.#.#####.#.####",
+  "####.#.......#.####",
+  "####.#.#####.#.####",
+  "#........#........#",
+  "#.##.###.#.###.##.#",
+  "#o.......P.......o#",
+  "#.##.#.#####.#.##.#",
+  "#....#...#...#....#",
+  "#.######.#.######.#",
+  "#.................#",
+  "###################",
+],
+[ // ---- Nivel 2: Orejas (más rápido) ----
+  "###################",
+  "#o.......#.......o#",
+  "#.##.###.#.###.##.#",
+  "#.#.............#.#",
+  "#.#.##.#####.##.#.#",
+  "#......#...#......#",
+  "####.###.#.###.####",
+  "####.#.......#.####",
+  "####.#.##-##.#.####",
+  "     #.#GGG#.#     ",
+  "####.#.#####.#.####",
+  "####.#.......#.####",
+  "####.#.#####.#.####",
+  "#.#.............#.#",
+  "#.#.##.#####.##.#.#",
+  "#........P........#",
+  "#.###.##.#.##.###.#",
+  "#o..#....#....#..o#",
+  "#.#.####.#.####.#.#",
+  "#.................#",
+  "###################",
+]];
+
+// Convierte las filas de texto en una estructura jugable
+function parseMaze(filas){
+  const h = filas.length, w = filas[0].length;
+  const grid = [];
+  let spawn = null, door = null, houseCells = [];
+  let bones = 0;
+  for(let y=0; y<h; y++){
+    grid.push([]);
+    for(let x=0; x<w; x++){
+      let ch = filas[y][x];
+      if(ch === "P"){ spawn = {x, y}; ch = " "; }
+      if(ch === "-"){ door = {x, y}; }
+      if(ch === "G"){ houseCells.push({x, y}); }
+      if(ch === "." || ch === "o") bones++;
+      grid[y].push(ch);
+    }
+  }
+  return { w, h, grid, spawn, door, houseCells, bones,
+           exit: { x:door.x, y:door.y-1 } }; // celda libre encima de la puerta
+}
+
+/* ============================================================
+   SECCIÓN 3 · AUDIO 8-BIT (Web Audio API, sin archivos)
+   ============================================================ */
+const Audio8 = (() => {
+  let ac = null, muted = false, wakaAlt = false;
+  // El AudioContext se crea recién en el primer gesto del usuario
+  function ctx(){
+    if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    if(ac && ac.state === "suspended") ac.resume();
+    return ac;
+  }
+  // beep genérico: frecuencia, duración, tipo de onda, volumen, glide
+  function beep(f, dur, type, vol, f2){
+    const a = ctx(); if(!a || muted) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+    o.type = type || "square";
+    o.frequency.setValueAtTime(f, t);
+    if(f2) o.frequency.linearRampToValueAtTime(f2, t+dur);
+    g.gain.setValueAtTime(vol||0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t+dur+0.02);
+  }
+  return {
+    unlock: ctx,
+    toggleMute(){ muted = !muted; return muted; },
+    waka(){ wakaAlt = !wakaAlt; beep(wakaAlt?520:380, .07, "square", .09); },
+    power(){ beep(220,.4,"sawtooth",.12,660); },
+    eatGhost(){ beep(880,.18,"square",.14,1320); },
+    death(){ beep(600,.5,"sawtooth",.16,80); },
+    levelClear(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.16,"square",.13), i*130)); },
+    win(){ [523,659,784,1047,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,.2,"triangle",.16), i*150)); },
+  };
+})();
+
+/* ============================================================
+   SECCIÓN 4 · MOTOR DEL JUEGO
+   Grid + movimiento tile-by-tile con interpolación, IA de
+   fantasmas (perseguidor y emboscador), power-ups y vidas.
+   Todo el estado vive en memoria (sin localStorage).
+   ============================================================ */
+const TILE = 16;                       // píxeles lógicos por celda
+const COLS = 19, ROWS = 21;
+const LW = COLS*TILE, LH = ROWS*TILE;  // resolución lógica del canvas
+const DIRS = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+
+// Configuración por nivel: perrita, velocidades (tiles/seg) y power-up
+const NIVELES = [
+  { dog:"negrita", vJugador:4.8, vFantasma:3.0, vAsustado:2.0, frightT:9.0 },
+  { dog:"orejas",  vJugador:4.9, vFantasma:3.6, vAsustado:2.2, frightT:8.0 },
+];
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// ---- Estado global del juego (solo variables en memoria) ----
+const G = {
+  fase: "idle",        // idle | ready | playing | paused | dying | clear | won
+  nivel: 0,            // índice en NIVELES
+  score: 0,
+  vidas: 3,
+  maze: null,          // laberinto parseado del nivel actual
+  bonesLeft: 0,
+  frightT: 0,          // segundos restantes de power-up
+  animT: 0,            // reloj para animaciones
+  fasePrev: null,      // para reanudar tras pausa
+  wallsCache: null,    // paredes pre-dibujadas
+  player: null,
+  ghosts: [],
+};
+
+// ---- Entidades ----
+function makePlayer(spawn){
+  return { tx:spawn.x, ty:spawn.y, ntx:spawn.x, nty:spawn.y, prog:0,
+           dir:null, want:null, flip:false, moving:false };
+}
+function makeGhost(nombre, cell, delay){
+  return { nombre, tx:cell.x, ty:cell.y, ntx:cell.x, nty:cell.y, prog:0,
+           dir:{x:0,y:-1}, estado:"casa",   // casa | saliendo | activo | asustado | respawn
+           timer:delay, home:{...cell} };
+}
+
+function resetPositions(){
+  const m = G.maze;
+  G.player = makePlayer(m.spawn);
+  const c = m.houseCells;
+  G.ghosts = [
+    makeGhost("nico",  c[0],              2.5),  // perseguidora: sale primero
+    makeGhost("diego", c[c.length-1],     6.0),  // emboscador: sale bastante después
+  ];
+  G.frightT = 0;
+}
+
+function loadLevel(n){
+  G.nivel = n;
+  G.maze = parseMaze(MAZE_ROWS[n]);
+  G.bonesLeft = G.maze.bones;
+  G.wallsCache = renderWalls(G.maze);
+  resetPositions();
+  updateHUD();
+}
+
+// ¿Puede caminar por (x,y)? Los fantasmas en casa/saliendo/respawn
+// pueden pisar la puerta '-' y el interior 'G'; nadie más.
+function walkable(x, y, ente){
+  const m = G.maze;
+  if(y < 0 || y >= m.h) return false;
+  if(x < 0 || x >= m.w){                    // túnel: envuelve horizontalmente
+    const wx = (x + m.w) % m.w;
+    return m.grid[y][wx] !== "#" && !esCasa(m.grid[y][wx]) ? true : false;
+  }
+  const ch = m.grid[y][x];
+  if(ch === "#") return false;
+  if(esCasa(ch)){
+    return !!(ente && ente.estado && (ente.estado==="casa" || ente.estado==="saliendo" || ente.estado==="respawn"));
+  }
+  return true;
+}
+function esCasa(ch){ return ch === "G" || ch === "-"; }
+function wrapX(x){ return (x + G.maze.w) % G.maze.w; }
+
+// Distancia al cuadrado entre celdas (para decisiones de IA)
+function dist2(ax, ay, bx, by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+
+// Posición interpolada (en tiles) de una entidad
+function posOf(e){
+  return { x: e.tx + (e.ntx-e.tx)*e.prog, y: e.ty + (e.nty-e.ty)*e.prog };
+}
+
+/* ---- Movimiento de la perrita ---- */
+function updatePlayer(dt){
+  const p = G.player, v = NIVELES[G.nivel].vJugador;
+  // Reversa inmediata a mitad de celda (respuesta más ágil)
+  if(p.moving && p.want && p.want.x === -p.dir.x && p.want.y === -p.dir.y){
+    const t = p.tx; p.tx = p.ntx; p.ntx = t;
+    const u = p.ty; p.ty = p.nty; p.nty = u;
+    p.prog = 1 - p.prog; p.dir = p.want; p.want = null;
+    if(p.dir.x) p.flip = p.dir.x < 0;
+  }
+  if(!p.moving){
+    if(p.want && tryStart(p, p.want)) { p.dir = p.want; p.want = null; }
+    else return;
+  }
+  p.prog += v*dt;
+  while(p.prog >= 1){
+    p.prog -= 1;
+    p.tx = wrapX(p.ntx); p.ty = p.nty;
+    eatAt(p.tx, p.ty);
+    // En el centro de la celda: aplicar dirección pedida o continuar
+    let d = (p.want && walkable(p.tx+p.want.x, p.ty+p.want.y, null)) ? p.want : p.dir;
+    if(d === p.want) { p.dir = p.want; p.want = null; }
+    if(walkable(p.tx+d.x, p.ty+d.y, null)){
+      p.ntx = p.tx+d.x; p.nty = p.ty+d.y;
+      if(d.x) p.flip = d.x < 0;
+    } else { p.moving = false; p.prog = 0; p.ntx = p.tx; p.nty = p.ty; break; }
+  }
+}
+function tryStart(p, d){
+  if(!walkable(p.tx+d.x, p.ty+d.y, null)) return false;
+  p.ntx = p.tx+d.x; p.nty = p.ty+d.y; p.prog = 0; p.moving = true;
+  if(d.x) p.flip = d.x < 0;
+  return true;
+}
+
+// Comer lo que haya en la celda
+function eatAt(x, y){
+  const ch = G.maze.grid[y][x];
+  if(ch === "." || ch === "o"){
+    G.maze.grid[y][x] = " ";
+    G.bonesLeft--;
+    if(ch === "."){ G.score += 10; Audio8.waka(); }
+    else {
+      G.score += 50; Audio8.power();
+      G.frightT = NIVELES[G.nivel].frightT;         // ¡power-up!
+      for(const g of G.ghosts){
+        if(g.estado === "activo"){ g.estado = "asustado"; g.dir = {x:-g.dir.x, y:-g.dir.y}; }
+      }
+    }
+    updateHUD();
+    if(G.bonesLeft <= 0) levelCleared();
+  }
+}
+
+/* ---- IA de los fantasmas (Nico persigue, Diego embosca) ---- */
+function ghostTarget(g){
+  const p = G.player;
+  if(g.estado === "saliendo") return G.maze.exit;
+  if(g.nombre === "nico") return { x:p.tx, y:p.ty };          // persecución directa
+  // Diego: apunta 4 celdas por delante de la perrita (emboscada)
+  const d = p.dir || {x:0,y:0};
+  return { x: p.tx + d.x*4, y: p.ty + d.y*4 };
+}
+
+function ghostDecide(g){
+  // ¿Llegó a la salida de la casa?
+  if(g.estado === "saliendo" && g.tx === G.maze.exit.x && g.ty === G.maze.exit.y){
+    g.estado = (G.frightT > 0) ? "asustado" : "activo";
+  }
+  const rev = {x:-g.dir.x, y:-g.dir.y};
+  let opts = DIRS.filter(d =>
+    !(d.x===rev.x && d.y===rev.y) && walkable(g.tx+d.x, g.ty+d.y, g));
+  if(opts.length === 0) opts = [rev];                        // callejón: media vuelta
+  const t = ghostTarget(g);
+  if(g.estado === "asustado"){
+    // Huye: maximiza distancia a la perrita, con algo de azar
+    const p = G.player;
+    opts.sort((a,b) => dist2(g.tx+b.x,g.ty+b.y,p.tx,p.ty) - dist2(g.tx+a.x,g.ty+a.y,p.tx,p.ty));
+    g.dir = (Math.random() < 0.25 && opts.length > 1) ? opts[1] : opts[0];
+  } else {
+    opts.sort((a,b) => dist2(g.tx+a.x,g.ty+a.y,t.x,t.y) - dist2(g.tx+b.x,g.ty+b.y,t.x,t.y));
+    g.dir = opts[0];
+  }
+  g.ntx = g.tx + g.dir.x; g.nty = g.ty + g.dir.y;
+}
+
+function updateGhost(g, dt){
+  const nv = NIVELES[G.nivel];
+  if(g.estado === "casa" || g.estado === "respawn"){
+    g.timer -= dt;
+    if(g.timer <= 0){ g.estado = "saliendo"; ghostDecide(g); }
+    return;
+  }
+  const v = (g.estado === "asustado") ? nv.vAsustado
+          : (g.estado === "saliendo") ? 3.0 : nv.vFantasma;
+  g.prog += v*dt;
+  while(g.prog >= 1){
+    g.prog -= 1;
+    g.tx = wrapX(g.ntx); g.ty = g.nty;
+    ghostDecide(g);
+  }
+}
+
+/* ---- Colisiones perrita vs. humanos ---- */
+function checkCollisions(){
+  const pp = posOf(G.player);
+  for(const g of G.ghosts){
+    if(g.estado === "casa" || g.estado === "respawn" || g.estado === "saliendo") continue;
+    const gp = posOf(g);
+    if(Math.abs(pp.x-gp.x) < 0.6 && Math.abs(pp.y-gp.y) < 0.6){
+      if(g.estado === "asustado"){
+        // ¡Asustó a Nico/Diego! Vuelve a la casa un ratito
+        g.estado = "respawn"; g.timer = 2.5;
+        g.tx = g.ntx = g.home.x; g.ty = g.nty = g.home.y; g.prog = 0;
+        G.score += 200; Audio8.eatGhost(); updateHUD();
+      } else {
+        loseLife();
+        return;
+      }
+    }
+  }
+}
+
+function loseLife(){
+  G.fase = "dying"; G.animT = 0;
+  Audio8.death();
+  setTimeout(() => {
+    G.vidas--;
+    updateHUD();
+    if(G.vidas > 0){
+      resetPositions();
+      startReady("¡Cuidado!", "Te quedan " + G.vidas + (G.vidas===1?" vida":" vidas"));
+    } else {
+      // Derrota: se reinicia SOLO el nivel actual, nunca todo el juego
+      showOverlay("GAME OVER", "Nico y Diego te atraparon... ¡pero la revancha es ya!",
+        "Reintentar nivel " + (G.nivel+1), () => {
+          G.vidas = 3; loadLevel(G.nivel);
+          startReady(readyMsg(), "");
+        });
+    }
+  }, 1300);
+}
+
+function levelCleared(){
+  G.fase = "clear"; G.animT = 0;
+  Audio8.levelClear();
+  setTimeout(() => {
+    if(G.nivel === 0){
+      // Transición juguetona entre Negrita y Orejas
+      showOverlay("¡Nivel 1 completado! 🦴",
+        "Negrita comió todito y se fue a dormir la siesta 😴 Ahora le toca a OREJAS... ¡pero Nico y Diego vienen con más ganas!",
+        "▶ Jugar con Orejas", () => {
+          loadLevel(1);
+          startReady(readyMsg(), "");
+        });
+    } else {
+      G.fase = "won";
+      Audio8.win();
+      showOverlay("¡GANASTE! 💘", "Las perritas están felices y panzonas. Hay algo para ti aquí abajo...", "🎁 Ver mi sorpresa", () => revealInvite());
+    }
+  }, 1600);
+}
+
+function readyMsg(){
+  return G.nivel === 0 ? "¡Vamos, Negrita!" : "¡Tú puedes, Orejas!";
+}
+
+function startReady(titulo, sub){
+  G.fase = "ready";
+  showOverlay(titulo, sub, null, null);
+  setTimeout(() => {
+    if(G.fase === "ready"){
+      hideOverlay(); G.fase = "playing";
+      if(document.hidden) pauseGame();   // si la pestaña quedó en segundo plano
+    }
+  }, 1400);
+}
+
+/* ---- Tick principal ---- */
+let lastT = 0;
+function loop(t){
+  const dt = Math.min(0.05, (t - lastT)/1000 || 0);
+  lastT = t;
+  G.animT += dt;
+  if(G.fase === "playing"){
+    if(G.frightT > 0) G.frightT = Math.max(0, G.frightT - dt);
+    else for(const g of G.ghosts) if(g.estado === "asustado") g.estado = "activo";
+    updatePlayer(dt);
+    for(const g of G.ghosts) updateGhost(g, dt);
+    checkCollisions();
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   SECCIÓN 5 · RENDER DEL JUEGO
+   ============================================================ */
+// Pre-dibuja las paredes del laberinto en un canvas offscreen
+function renderWalls(m){
+  const c = document.createElement("canvas");
+  c.width = LW; c.height = LH;
+  const g = c.getContext("2d");
+  g.fillStyle = "#04040f"; g.fillRect(0,0,LW,LH);
+  for(let y=0; y<m.h; y++){
+    for(let x=0; x<m.w; x++){
+      const ch = m.grid[y][x];
+      if(ch === "#"){
+        // Bloque con borde neón solo hacia celdas transitables
+        g.fillStyle = "#10103a";
+        g.fillRect(x*TILE, y*TILE, TILE, TILE);
+        g.strokeStyle = "#3653ff"; g.lineWidth = 2;
+        const px = x*TILE, py = y*TILE;
+        const solid = (xx,yy) => yy>=0 && yy<m.h && xx>=0 && xx<m.w && m.grid[yy][xx]==="#";
+        g.beginPath();
+        if(!solid(x,y-1)){ g.moveTo(px+1, py+1); g.lineTo(px+TILE-1, py+1); }
+        if(!solid(x,y+1)){ g.moveTo(px+1, py+TILE-1); g.lineTo(px+TILE-1, py+TILE-1); }
+        if(!solid(x-1,y)){ g.moveTo(px+1, py+1); g.lineTo(px+1, py+TILE-1); }
+        if(!solid(x+1,y)){ g.moveTo(px+TILE-1, py+1); g.lineTo(px+TILE-1, py+TILE-1); }
+        g.stroke();
+      } else if(ch === "-"){
+        g.fillStyle = "#ff9fd0";       // puerta de la casa de fantasmas
+        g.fillRect(x*TILE+2, y*TILE+6, TILE-4, 4);
+      }
+    }
+  }
+  return c;
+}
+
+function drawEntity(e, sprite){
+  const p = posOf(e);
+  ctx.drawImage(sprite, Math.round(p.x*TILE), Math.round(p.y*TILE), TILE, TILE);
+}
+
+function draw(){
+  ctx.clearRect(0,0,LW,LH);
+  if(!G.maze){ return; }
+  // Flash de paredes al completar nivel
+  if(G.fase === "clear" && Math.floor(G.animT*6)%2 === 0){
+    ctx.globalAlpha = 0.55;
+  }
+  ctx.drawImage(G.wallsCache, 0, 0);
+  ctx.globalAlpha = 1;
+
+  // Huesos y power-ups (desde la matriz viva)
+  const m = G.maze;
+  const blink = Math.floor(G.animT*4)%2 === 0;
+  for(let y=0; y<m.h; y++){
+    for(let x=0; x<m.w; x++){
+      const ch = m.grid[y][x];
+      if(ch === ".") ctx.drawImage(SPR.bone, x*TILE+4, y*TILE+4, 8, 8);
+      else if(ch === "o" && blink) ctx.drawImage(SPR.power, x*TILE+3, y*TILE+3, 10, 10);
+    }
+  }
+
+  // Perrita (parpadea al morir; anima la boca al moverse)
+  const p = G.player;
+  if(p){
+    const dying = G.fase === "dying";
+    if(!dying || Math.floor(G.animT*10)%2 === 0){
+      const set = SPR[NIVELES[G.nivel].dog][p.flip ? "L" : "R"];
+      const frame = (p.moving && Math.floor(G.animT*8)%2 === 0) ? 0 : 1;
+      drawEntity(p, set[frame]);
+    }
+  }
+
+  // Nico y Diego
+  for(const g of G.ghosts){
+    if(g.estado === "respawn") continue;               // "volviendo a casa"
+    let spr = SPR[g.nombre];
+    if(g.estado === "asustado"){
+      const porAcabar = G.frightT < 1.8;
+      spr = (porAcabar && Math.floor(G.animT*8)%2===0) ? SPR.flash : SPR.fright;
+    }
+    // Bote sutil mientras esperan en casa
+    if(g.estado === "casa"){
+      const off = Math.sin(G.animT*6) * 1.5;
+      ctx.drawImage(spr, Math.round(g.tx*TILE), Math.round(g.ty*TILE + off), TILE, TILE);
+    } else {
+      drawEntity(g, spr);
+    }
+  }
+}
+
+/* ============================================================
+   SECCIÓN 6 · UI — HUD, overlay, controles, escala responsive
+   ============================================================ */
+const hudScore = document.getElementById("hudScore");
+const hudBones = document.getElementById("hudBones");
+const hudLives = document.getElementById("hudLives");
+const hudLevel = document.getElementById("hudLevel");
+const overlay  = document.getElementById("overlay");
+const ovTitulo = document.getElementById("ovTitulo");
+const ovTexto  = document.getElementById("ovTexto");
+const ovBoton  = document.getElementById("ovBoton");
+
+function updateHUD(){
+  hudScore.textContent = G.score;
+  hudBones.textContent = G.bonesLeft;
+  hudLevel.textContent = G.nivel + 1;
+  hudLives.textContent = "♥".repeat(Math.max(0, G.vidas));
+}
+
+function showOverlay(titulo, texto, btnLabel, onClick){
+  ovTitulo.textContent = titulo;
+  ovTexto.textContent = texto || "";
+  if(btnLabel){
+    ovBoton.textContent = btnLabel;
+    ovBoton.style.display = "";
+    ovBoton.onclick = () => { Audio8.unlock(); hideOverlay(); onClick && onClick(); };
+  } else {
+    ovBoton.style.display = "none";
+    ovBoton.onclick = null;
+  }
+  overlay.classList.remove("oculto");
+}
+function hideOverlay(){ overlay.classList.add("oculto"); }
+
+// El overlay tapa el canvas: tocar sobre él también empieza/reanuda
+overlay.addEventListener("pointerdown", (ev) => {
+  if(ev.target === ovBoton) return;   // los botones manejan su propio click
+  Audio8.unlock();
+  if(G.fase === "idle") startGame();
+  else resumeIfPaused();
+});
+
+/* ---- Escala responsive del canvas (nítido, con dPR) ---- */
+function fitCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  // Factor entero de nitidez según densidad de pantalla
+  const s = Math.min(4, Math.max(2, Math.ceil(dpr)));
+  canvas.width = LW*s; canvas.height = LH*s;
+  ctx.setTransform(s, 0, 0, s, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  // Ajuste CSS al viewport manteniendo el aspect ratio
+  const dpad = document.getElementById("dpad");
+  const dpadH = (getComputedStyle(dpad).display !== "none") ? dpad.offsetHeight + 16 : 0;
+  const hudH = document.getElementById("hud").offsetHeight;
+  const availW = Math.min(window.innerWidth, document.getElementById("juego").clientWidth) - 24;
+  const availH = window.innerHeight - hudH - dpadH - 40;
+  const k = Math.max(0.4, Math.min(availW/LW, availH/LH));
+  canvas.style.width  = Math.floor(LW*k) + "px";
+  canvas.style.height = Math.floor(LH*k) + "px";
+}
+window.addEventListener("resize", fitCanvas);
+window.addEventListener("orientationchange", fitCanvas);
+
+/* ---- Controles: teclado (flechas + WASD) ---- */
+const KEYMAP = {
+  ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+  w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+  W:{x:0,y:-1}, S:{x:0,y:1}, A:{x:-1,y:0}, D:{x:1,y:0},
+};
+document.addEventListener("keydown", (ev) => {
+  const d = KEYMAP[ev.key];
+  if(d){
+    if(ev.key.startsWith("Arrow")) ev.preventDefault(); // que no scrollee la página
+    Audio8.unlock();
+    resumeIfPaused();
+    setDir(d);
+  }
+});
+
+// Fija la dirección deseada de la perrita (desde cualquier control)
+function setDir(d){
+  if(G.fase === "idle") startGame();
+  if(G.fase !== "playing" || !G.player) return;
+  const p = G.player;
+  p.want = d;
+  if(!p.moving && tryStart(p, d)){ p.dir = d; p.want = null; }
+}
+
+/* ---- Controles: swipe sobre el canvas ---- */
+let swipe = null;
+canvas.addEventListener("touchstart", (ev) => {
+  Audio8.unlock(); resumeIfPaused();
+  const t = ev.changedTouches[0];
+  swipe = { x:t.clientX, y:t.clientY, done:false };
+}, {passive:true});
+canvas.addEventListener("touchmove", (ev) => {
+  if(!swipe || swipe.done) return;
+  const t = ev.changedTouches[0];
+  const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  if(Math.abs(dx) < 22 && Math.abs(dy) < 22) return;   // umbral del gesto
+  swipe.done = true;
+  setDir(Math.abs(dx) > Math.abs(dy) ? {x:Math.sign(dx),y:0} : {x:0,y:Math.sign(dy)});
+}, {passive:true});
+canvas.addEventListener("touchend", () => { swipe = null; }, {passive:true});
+// El canvas no debe scrollear la página al deslizar
+canvas.style.touchAction = "none";
+canvas.addEventListener("pointerdown", () => { Audio8.unlock(); resumeIfPaused(); if(G.fase==="idle") startGame(); });
+
+/* ---- Controles: D-pad en pantalla ---- */
+document.querySelectorAll("#dpad button[data-dir]").forEach(btn => {
+  const [dx,dy] = btn.dataset.dir.split(",").map(Number);
+  const fire = (ev) => { ev.preventDefault(); Audio8.unlock(); resumeIfPaused(); setDir({x:dx,y:dy}); };
+  btn.addEventListener("touchstart", fire, {passive:false});
+  btn.addEventListener("mousedown", fire);
+});
+
+/* ---- Pausa automática si la pestaña pierde el foco ---- */
+function pauseGame(){
+  if(G.fase === "playing"){
+    G.fasePrev = G.fase;
+    G.fase = "paused";
+    showOverlay("PAUSA", "Toca la pantalla o presiona una tecla para seguir", null, null);
+  }
+}
+function resumeIfPaused(){
+  if(G.fase === "paused"){ G.fase = "playing"; hideOverlay(); }
+}
+document.addEventListener("visibilitychange", () => { if(document.hidden) pauseGame(); });
+window.addEventListener("blur", pauseGame);
+
+/* ---- Mute ---- */
+document.getElementById("btnMute").addEventListener("click", (ev) => {
+  ev.target.textContent = Audio8.toggleMute() ? "🔇" : "🔊";
+});
+
+/* ---- Arranque ---- */
+function startGame(){
+  if(G.fase !== "idle") return;
+  G.score = 0; G.vidas = 3;
+  loadLevel(0);
+  startReady(readyMsg(), "Come todos los huesitos 🦴");
+}
+document.getElementById("btnJugar").addEventListener("click", () => {
+  Audio8.unlock();
+  document.getElementById("juego").scrollIntoView({behavior:"smooth"});
+  setTimeout(startGame, 350);
+});
+
+/* ============================================================
+   SECCIÓN 7 · INVITACIÓN — revelado, .ics y confeti pixelado
+   ============================================================ */
+const invitacion = document.getElementById("invitacion");
+let inviteShown = false;
+
+function revealInvite(){
+  if(!inviteShown){
+    inviteShown = true;
+    invitacion.classList.add("visible");
+    startConfetti();
+  }
+  pauseGame();
+  invitacion.scrollIntoView({behavior:"smooth"});
+}
+// Fail-safe: la invitación nunca queda bloqueada por el juego
+document.getElementById("btnSaltar").addEventListener("click", revealInvite);
+
+/* ---- Archivo .ics generado en memoria (domingo 5 de julio, 6 pm) ---- */
+document.getElementById("btnCalendario").addEventListener("click", () => {
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//PAC-DOG//Invitacion Aniversario//ES",
+    "BEGIN:VEVENT",
+    "UID:pacdog-aniversario-20260705@invitacion",
+    "DTSTAMP:20260703T120000Z",
+    "DTSTART:20260705T180000",
+    "DTEND:20260705T210000",
+    "SUMMARY:💘 Aniversario — cita sorpresa con Diego",
+    "DESCRIPTION:Ganaste el PAC-DOG 🐾 Nos vemos el domingo a las 6:00 pm. El lugar es sorpresa 🎁",
+    "LOCATION:Sorpresa 🎁",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "invitacion-aniversario.ics";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+});
+
+/* ---- Confeti pixelado + perritas celebrando ---- */
+function startConfetti(){
+  const cv = document.getElementById("confetiCanvas");
+  const cg = cv.getContext("2d");
+  const COLORES = ["#ffd93b","#ff5ea8","#4fd8ff","#39ff6a","#ff9f1c","#f7ecd0"];
+  let parts = [];
+  function size(){
+    cv.width = invitacion.clientWidth;
+    cv.height = invitacion.clientHeight;
+  }
+  size();
+  window.addEventListener("resize", size);
+  function spawn(){
+    parts.push({
+      x: Math.random()*cv.width, y: -12,
+      vy: 40 + Math.random()*80, vx: (Math.random()-0.5)*40,
+      s: 3 + Math.floor(Math.random()*4),
+      c: COLORES[Math.floor(Math.random()*COLORES.length)],
+      heart: Math.random() < 0.12,
+    });
+  }
+  let prev = 0;
+  function tick(t){
+    if(!inviteShown) return;
+    const dt = Math.min(0.05, (t-prev)/1000 || 0); prev = t;
+    cg.clearRect(0,0,cv.width,cv.height);
+    cg.imageSmoothingEnabled = false;
+    if(parts.length < 90 && Math.random() < 0.5) spawn();
+    parts = parts.filter(p => p.y < cv.height + 20);
+    for(const p of parts){
+      p.y += p.vy*dt; p.x += p.vx*dt;
+      if(p.heart) cg.drawImage(SPR.heart, Math.round(p.x), Math.round(p.y), 12, 12);
+      else { cg.fillStyle = p.c; cg.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s); }
+    }
+    // Las dos perritas pasean por la base de la sección
+    const frame = Math.floor(t/180)%2;
+    const y = cv.height - 40;
+    const range = Math.max(1, cv.width - 80);
+    const x1 = (t*0.06) % (range*2), xx1 = x1 < range ? x1 : range*2 - x1;
+    const dirN = x1 < range;
+    cg.drawImage(SPR.negrita[dirN?"R":"L"][frame], Math.round(xx1), y, 32, 32);
+    const x2 = (t*0.05 + range*0.7) % (range*2), xx2 = x2 < range ? x2 : range*2 - x2;
+    const dirO = x2 < range;
+    cg.drawImage(SPR.orejas[dirO?"R":"L"][frame], Math.round(xx2), y, 32, 32);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ============================================================
+   SECCIÓN 8 · DECORACIÓN (hero y tarjeta) + INIT
+   ============================================================ */
+// Perritas animadas del hero (idle: boca abre y cierra)
+(function heroDogs(){
+  const cN = document.getElementById("heroNegrita").getContext("2d");
+  const cO = document.getElementById("heroOrejas").getContext("2d");
+  let f = 0;
+  setInterval(() => {
+    f = 1 - f;
+    cN.clearRect(0,0,16,16); cN.drawImage(SPR.negrita.R[f], 0, 0);
+    cO.clearRect(0,0,16,16); cO.drawImage(SPR.orejas.L[f], 0, 0);
+  }, 380);
+})();
+
+// Perritas + corazón en la tarjeta final
+(function cardDogs(){
+  const c = document.getElementById("dogsFinal").getContext("2d");
+  let f = 0;
+  setInterval(() => {
+    f = 1 - f;
+    c.clearRect(0,0,45,16);
+    c.drawImage(SPR.negrita.R[f], 0, 0);
+    c.drawImage(SPR.heart, 19, 4, 8, 8);
+    c.drawImage(SPR.orejas.L[f], 29, 0);
+  }, 380);
+})();
+
+// Estado inicial: laberinto visible de fondo, esperando al jugador
+loadLevel(0);
+G.fase = "idle";
+showOverlay("PAC-DOG", "Toca aquí o presiona una flecha para empezar", null, null);
+fitCanvas();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
