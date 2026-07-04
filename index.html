@@ -67,12 +67,14 @@ section{ padding:24px 12px; }
 .btn-arcade.rosa{ background:var(--rosa); color:#fff; box-shadow:0 6px 0 #a5175f, 0 8px 14px rgba(0,0,0,.5); }
 .btn-arcade.rosa:active{ box-shadow:0 2px 0 #a5175f; }
 
-/* ---------- Botón fail-safe (siempre visible) ---------- */
+/* ---------- Botón fail-safe (aparece tras perder todas las vidas) ---------- */
 #btnSaltar{
+  display:none;
   position:fixed; top:10px; right:10px; z-index:50;
   background:rgba(13,13,43,.85); color:var(--celeste);
   border:2px solid var(--celeste); padding:7px 10px; font-size:.72rem;
 }
+#btnSaltar.visible{ display:block; }
 #btnSaltar:hover{ background:var(--celeste); color:#00222e; }
 
 /* ---------- Hero ---------- */
@@ -168,7 +170,7 @@ section{ padding:24px 12px; }
 </head>
 <body>
 
-<!-- Fail-safe: la invitación SIEMPRE es alcanzable desde aquí -->
+<!-- Fail-safe: aparece cuando pierdes todas las vidas por primera vez -->
 <button id="btnSaltar" aria-label="Saltar el juego y ver la invitación">🎁 Ver invitación</button>
 
 <!-- ================= HERO ================= -->
@@ -226,8 +228,8 @@ section{ padding:24px 12px; }
     </p>
     <p class="mensaje">
       <em>Nico:</em> feliz aniversario, amor. Gracias por un año más de
-      aventuras, risas y paseos con las perriñas. Te preparé una sorpresa —
-      tú solo tienes que llegar. 🐾
+      aventuras, risas y paseos con las perriñas. Te preparé una sorpresa,
+      tú solo tienes que llegar.
     </p>
     <p class="separador"></p>
     <div class="datos">
@@ -236,7 +238,7 @@ section{ padding:24px 12px; }
       <span>📍 Lugar: <b>Sorpresa 🎁</b></span>
     </div>
     <button id="btnCalendario" class="btn-arcade rosa">📅 Agregar al calendario</button>
-    <p class="firma">Con amor, Diego ♥</p>
+    <p class="firma">Con mucho cariño, Diego ♥</p>
   </div>
 </section>
 
@@ -348,18 +350,18 @@ const OREJAS_B = [ // boca cerrada
        cabello castaño oscuro largo a los lados --- */
 const PAL_NICO = { W:"#f4f4f4", H:"#3a2a1e", F:"#a9714b", L:"#1c1c1c", e:"#2a1508", p:"#c96a6a" };
 const NICO_SPR = [
-  ".....WWWWWW.....",
-  "...WWWWWWWWWW...",
-  "..WHHHHHHHHHW...",
-  ".WHHHHHHHHHHHW..",
-  ".WHHFFFFFFFHHW..",
-  ".WHHFFFFFFFHHW..",
-  ".WHFLLLFLLLFHW..",
-  ".WHFLeLFLeLFHW..",
-  ".WHFLLLFLLLFHW..",
-  ".WHFFFFFFFFFHW..",
-  ".WHFFFpppFFFHW..",
-  ".WHHFFFFFFFHHW..",
+  ".....HHHHHH.....",
+  "...HHHHHHHHHH...",
+  "..HHHHHHHHHHH...",
+  ".HHHHHHHHHHHHH..",
+  ".HHHFFFFFFFHHH..",
+  ".HHHFFFFFFFHHH..",
+  ".HHFLLLFLLLFHH..",
+  ".HHFLeLFLeLFHH..",
+  ".HHFLLLFLLLFHH..",
+  ".HHFFFFFFFFFHH..",
+  ".HHFFFpppFFFHH..",
+  ".HHHFFFFFFFHHH..",
   ".WWWWWWWWWWWWW..",
   ".WWWWWWWWWWWWW..",
   ".WW.WWW..WWW.WW.",
@@ -377,14 +379,14 @@ const DIEGO_SPR = [
   "..CCCCCCCCCCC...",
   ".CCCCCCCCCCCCC..",
   ".CCCCCCCCCCCCC..",
-  ".WCCFFFFFFFCCW..",
-  ".WCFFFFFFFFFCW..",
-  ".WFFLLLFLLLFFW..",
-  ".WFFLeLFLeLFFW..",
-  ".WFFFFFFFFFFFW..",
-  ".WFFFmmmmmFFFW..",
-  ".WFFFmBmBmFFFW..",
-  ".WGOPAGOPAGOPW..",
+  ".CCCFFFFFFFCCC..",
+  ".CCFFFFFFFFFCC..",
+  ".CFFLLLFLLLFFC..",
+  ".CFFLeLFLeLFFC..",
+  ".CFFFFFFFFFFFC..",
+  ".CFFFmmmmmFFFC..",
+  ".CFFFmBmBmFFFC..",
+  ".CGOPAGOPAGOPC..",
   ".WWWWWWWWWWWWW..",
   ".WWWWWWWWWWWWW..",
   ".WW.WWW..WWW.WW.",
@@ -799,6 +801,7 @@ function loseLife(){
       startReady("¡Cuidado!", "Te quedan " + G.vidas + (G.vidas===1?" vida":" vidas"));
     } else {
       // Derrota: se reinicia SOLO el nivel actual, nunca todo el juego
+      unlockSkipButton();
       showOverlay("GAME OVER", "Nico y Diego te atraparon... ¡pero la revancha es ya!",
         "Reintentar nivel " + (G.nivel+1), () => {
           G.vidas = 3; loadLevel(G.nivel);
@@ -1101,6 +1104,7 @@ document.getElementById("btnJugar").addEventListener("click", () => {
    SECCIÓN 7 · INVITACIÓN — revelado, .ics y confeti pixelado
    ============================================================ */
 const invitacion = document.getElementById("invitacion");
+const btnSaltar = document.getElementById("btnSaltar");
 let inviteShown = false;
 
 function revealInvite(){
@@ -1112,8 +1116,11 @@ function revealInvite(){
   pauseGame();
   invitacion.scrollIntoView({behavior:"smooth"});
 }
-// Fail-safe: la invitación nunca queda bloqueada por el juego
-document.getElementById("btnSaltar").addEventListener("click", revealInvite);
+// Fail-safe: se habilita recién cuando pierdes todas las vidas por primera vez
+function unlockSkipButton(){
+  btnSaltar.classList.add("visible");
+}
+btnSaltar.addEventListener("click", revealInvite);
 
 /* ---- Archivo .ics generado en memoria (domingo 5 de julio, 6 pm) ---- */
 document.getElementById("btnCalendario").addEventListener("click", () => {
@@ -1126,7 +1133,7 @@ document.getElementById("btnCalendario").addEventListener("click", () => {
     "DTSTAMP:20260703T120000Z",
     "DTSTART:20260705T180000",
     "DTEND:20260705T210000",
-    "SUMMARY:💘 Aniversario — cita sorpresa con Diego",
+    "SUMMARY:💘 Aniversario, cita sorpresa con Diego",
     "DESCRIPTION:Ganaste el PAC-WUF 🐾 Nos vemos el domingo a las 6:00 pm. El lugar es sorpresa 🎁",
     "LOCATION:Sorpresa 🎁",
     "END:VEVENT",
