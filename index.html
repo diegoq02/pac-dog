@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>PAC-DOG · Una invitación especial</title>
+<title>PAC-WUF · Una invitación especial</title>
 <style>
 /* ============================================================
-   PAC-DOG — Landing de invitación 8-bit
+   PAC-WUF — Landing de invitación 8-bit
    Un solo archivo, sin dependencias externas ni localStorage.
    Secciones: variables / base / hero / juego / D-pad / invitación
    ============================================================ */
@@ -173,7 +173,7 @@ section{ padding:24px 12px; }
 
 <!-- ================= HERO ================= -->
 <section id="hero">
-  <h1 class="titulo-arcade">PAC&#8209;DOG</h1>
+  <h1 class="titulo-arcade">PAC&#8209;WUF</h1>
   <p class="sub">★ Negrita y Orejas necesitan tu ayuda ★</p>
   <div class="perritas">
     <div class="perrita"><canvas id="heroNegrita" width="16" height="16"></canvas><span>NEGRITA</span></div>
@@ -195,7 +195,7 @@ section{ padding:24px 12px; }
   <div class="canvas-wrap">
     <canvas id="gameCanvas"></canvas>
     <div id="overlay">
-      <h2 id="ovTitulo">PAC-DOG</h2>
+      <h2 id="ovTitulo">PAC-WUF</h2>
       <p id="ovTexto">Toca aquí o presiona una flecha para empezar</p>
       <button id="ovBoton" class="btn-arcade" style="display:none">Continuar</button>
       <p class="mini">Flechas / WASD · en el cel: desliza o usa el D-pad</p>
@@ -823,7 +823,7 @@ function levelCleared(){
     } else {
       G.fase = "won";
       Audio8.win();
-      showOverlay("¡GANASTE! 💘", "Las perritas están felices y panzonas. Hay algo para ti aquí abajo...", "🎁 Ver mi sorpresa", () => revealInvite());
+      showOverlay("¡GANASTE!", "Las perritas están felices y satisfechas. Hay algo para ti aquí abajo...", "🎁 Ver mi sorpresa", () => revealInvite());
     }
   }, 1600);
 }
@@ -1120,14 +1120,14 @@ document.getElementById("btnCalendario").addEventListener("click", () => {
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//PAC-DOG//Invitacion Aniversario//ES",
+    "PRODID:-//PAC-WUF//Invitacion Aniversario//ES",
     "BEGIN:VEVENT",
-    "UID:pacdog-aniversario-20260705@invitacion",
+    "UID:pacwuf-aniversario-20260705@invitacion",
     "DTSTAMP:20260703T120000Z",
     "DTSTART:20260705T180000",
     "DTEND:20260705T210000",
     "SUMMARY:💘 Aniversario — cita sorpresa con Diego",
-    "DESCRIPTION:Ganaste el PAC-DOG 🐾 Nos vemos el domingo a las 6:00 pm. El lugar es sorpresa 🎁",
+    "DESCRIPTION:Ganaste el PAC-WUF 🐾 Nos vemos el domingo a las 6:00 pm. El lugar es sorpresa 🎁",
     "LOCATION:Sorpresa 🎁",
     "END:VEVENT",
     "END:VCALENDAR",
@@ -1221,7 +1221,7 @@ function startConfetti(){
 // Estado inicial: laberinto visible de fondo, esperando al jugador
 loadLevel(0);
 G.fase = "idle";
-showOverlay("PAC-DOG", "Toca aquí o presiona una flecha para empezar", null, null);
+showOverlay("PAC-WUF", "Toca aquí o presiona una flecha para empezar", null, null);
 fitCanvas();
 requestAnimationFrame(loop);
 </script>
